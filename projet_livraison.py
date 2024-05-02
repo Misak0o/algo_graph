@@ -1,39 +1,48 @@
-import heapq
-
 def read_graph(N, nom_fichier):
-    graphe = {'villages': {}, 'obstacles': [], 'deplacements': [], 'drone': None}
+    graphe = {'villages': {}, 'obstacles': [], 'drones': {}, 'entites': {}}
     ordered_villages = []
-
+    acc = 1
     with open(nom_fichier, 'r') as f:
         for ligne in f:
             ligne = ligne.strip()
             entite, coordonnees = ligne.split(' : ')
 
             if entite == 'D':
-                graphe['drone'] = tuple(map(int, coordonnees.strip()[1:-1].split(',')))
+                x, y = map(int, coordonnees.strip()[1:-1].split(','))
+                graphe['drones'][acc] = (x,y)
+                acc = acc + 1
             elif entite.isdigit():
                 identite = int(entite)
                 x, y = map(int, coordonnees.strip()[1:-1].split(','))
-                if 1 <= x <= N and 1 <= y <= N:  # Vérification des coordonnées valides
+                if 0 <= x <= N and 0 <= y <= N:  # Vérification des coordonnées valides
                     graphe['villages'][identite] = (x, y)
                     ordered_villages.append((x, y))
                 else:
                     print(f"Attention: Les coordonnées du village {identite} ne sont pas valides.")
+            elif entite == 'X':
+                obstacles = [tuple(map(int, p.strip()[1:-1].split(','))) for p in coordonnees.split(';')]
+                graphe['obstacles'].extend(obstacles)
+            elif entite == 'E':
+                entite_coordonnees = [tuple(coord.strip()[1:-1].split(',')) for coord in coordonnees.split(';')]
+                if entite in graphe['entites']:
+                    graphe['entites'][entite].extend(entite_coordonnees)
+                else:
+                    graphe['entites'][entite] = entite_coordonnees
 
     graphe['ordered_villages'] = ordered_villages
     return graphe
 
 
+
 def a_star_search(graph, heuristic):
-    # Initialiser l'état initial à partir des données du graphe
     initial_state = {
-        'drone_positions': [graph['drone']],
+        'drone_positions': list(graph['drones'].values()),
         'remaining_villages': list(graph['villages'].values()),
         'path': [],
         'g_score': 0,
-        'h_score': heuristic(graph['drone'], list(graph['villages'].values())[-1]),
-        'f_score': heuristic(graph['drone'], list(graph['villages'].values())[-1]),
-        'hash': (graph['drone'],) + tuple(graph['villages'].values())
+        'h_score': heuristic(list(graph['drones'].values())[0], list(graph['villages'].values())[-1]),
+        'f_score': heuristic(list(graph['drones'].values())[0], list(graph['villages'].values())[-1]),
+        'hash': (tuple(graph['drones'].values()),) + tuple(graph['villages'].values())
     }
 
     open_list = [initial_state]
@@ -62,6 +71,7 @@ def a_star_search(graph, heuristic):
 
     return None
 
+
 def generate_successors(state, graph):
     successors = []
 
@@ -89,15 +99,48 @@ def generate_successors(state, graph):
 
 
 def heuristic(village1, village2):
-    # Heuristique : distance de Manhattan entre les deux villages
     return abs(village1[0] - village2[0]) + abs(village1[1] - village2[1])
+
 
 def distance(position1, position2):
     return abs(position1[0] - position2[0]) + abs(position1[1] - position2[1])
 
+
+
+def print_optimal_tour(optimal_tour, graph):
+    villages = graph["villages"]
+    drones = graph["drones"]
+    currently_drone = 0
+    for i in optimal_tour:
+        data_1 = i[0]
+        data_2 = i[1]
+        if (data_1 in drones.values() and data_2 in villages.values()):
+            key_drones = get_key_from_value(drones, data_1)
+            key_villages = get_key_from_value(villages, data_2)
+            if (key_drones != currently_drone):
+                currently_drone = key_drones
+            print (f'Le drone {currently_drone} va au village {key_villages}')
+            continue
+        if (data_1 in villages.values() and data_2 in villages.values()):
+            key_villages1 = get_key_from_value(villages,data_1)
+            key_villages2 = get_key_from_value(villages, data_2)
+            print(f'Le drone {currently_drone} va du village {key_villages1} au village {key_villages2}')
+            continue
+
+
+
+
+def get_key_from_value(dictionary, value):
+    for key, val in dictionary.items():
+        if val == value:
+            return key
+    return None  # Si la valeur n'est pas trouvée
+        
+
 N = 100
-my_graph = read_graph(N,"village1.txt")
+my_graph = read_graph(N,"village3.txt")
 tour_optimal = a_star_search(my_graph,heuristic)
 
 print(my_graph)
-print(f'tour_optimal : {tour_optimal}')
+print(tour_optimal)
+print_optimal_tour(tour_optimal, my_graph)
